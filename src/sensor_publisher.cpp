@@ -32,7 +32,7 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
   (void) last_call_time;
 
   // Random boolean colors
-  data_buffer[0] = random(0, 2);  // red
+  data_buffer[0] = random(0, 2);  // colourless
   data_buffer[1] = random(0, 2);  // purple
   data_buffer[2] = random(0, 2);  // pink
 
