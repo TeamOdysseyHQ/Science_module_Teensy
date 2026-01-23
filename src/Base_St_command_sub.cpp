@@ -1,8 +1,8 @@
-#include <micro_ros_arduino.h>
-#include <rcl/rcl.h>
-#include <rclc/rclc.h>
-#include <rclc/executor.h>
-#include <std_msgs/msg/int32_multi_array.h>
+// #include <micro_ros_arduino.h>
+// #include <rcl/rcl.h>
+// #include <rclc/rclc.h>
+// #include <rclc/executor.h>
+// #include <std_msgs/msg/int32_multi_array.h>
 
 // rcl_node_t node;
 // rcl_subscription_t subscriber;
