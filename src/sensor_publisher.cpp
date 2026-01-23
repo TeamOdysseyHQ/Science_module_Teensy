@@ -1,10 +1,10 @@
-// /**
-//  * @file sensor_publisher.cpp
-//  * @brief Publishes sensor data using micro-ROS on a Teensy 4.1 Tested and works with optiplex
-//  * @author Rtamanyu N J
-//  * @date 2024-06-20
-//  * Won't work in WSL (port config req) - use nativ eLinux
-//  */
+/**
+ * @file sensor_publisher.cpp
+ * @brief Publishes sensor data using micro-ROS on a Teensy 4.1 Tested and works with optiplex
+ * @author Rtamanyu N J
+ * @date 2024-06-20
+ * Won't work in WSL (port config req) - use nativ eLinux
+ */
 
 #include <micro_ros_arduino.h>
 
@@ -34,9 +34,9 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
   // Random boolean colors
   data_buffer[0] = random(0, 2);  // colourless
   data_buffer[1] = random(0, 2);  // purple
-  data_buffer[2] = random(0, 2);  // pink
 
   // Random sensor values
+  data_buffer[2] = random(0, 255);       // humidity
   data_buffer[3]  = random(10, 80);      // N
   data_buffer[4]  = random(10, 80);      // P
   data_buffer[5]  = random(10, 80);      // K
