@@ -5,6 +5,7 @@
  * 
  */
 #include "NPK_ModBuster.h"
+#include "CustomPrint.h"
 
 NPK_MB_Sensor::NPK_MB_Sensor() {
     // Constructor
@@ -38,8 +39,8 @@ void NPK_MB_Sensor::begin() {
   node_ModBuster.preTransmission(preTransmission);
   node_ModBuster.postTransmission(postTransmission);
 
-  Serial.println("JXBS-3001 NPK Sensor Initialized");
-  Serial.println("Reading registers 0x001E - 0x0020");
+  println("JXBS-3001 NPK Sensor Initialized");
+  println("Reading registers 0x001E - 0x0020");
 }
 
 bool NPK_MB_Sensor::readNPK(uint16_t &nitrogen, uint16_t &phosphorus, uint16_t &potassium) {

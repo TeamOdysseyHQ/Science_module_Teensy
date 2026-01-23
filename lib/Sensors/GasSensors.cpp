@@ -1,4 +1,5 @@
 #include "GasSensors.h"
+#include "CustomPrint.h"
 
 /************** CLEAN AIR RATIOS **************/
 #define MQ2_CLEAN_AIR_RATIO  9.83
@@ -24,21 +25,25 @@ MQ135Sensor::MQ135Sensor(uint8_t analogPin)
 void MQ2Sensor::begin() {
   mq2.setRegressionMethod(1);
   mq2.init();
+  println("MQ-2 sensor initialized");
 }
 
 void MQ4Sensor::begin() {
   mq4.setRegressionMethod(1);
   mq4.init();
+  println("MQ-4 sensor initialized");
 }
 
 void MQ6Sensor::begin() {
   mq6.setRegressionMethod(1);
   mq6.init();
+  println("MQ-6 sensor initialized");
 }
 
 void MQ135Sensor::begin() {
   mq135.setRegressionMethod(1); // Exponential
   mq135.init();
+  println("MQ-135 sensor initialized");
 }
 
 
@@ -50,6 +55,7 @@ void MQ2Sensor::calibrate() {
     r0 += mq2.calibrate(MQ2_CLEAN_AIR_RATIO);
     delay(1000);
   }
+  println("MQ-2 sensor calibrated with R0: " + String(r0 / 10));
   mq2.setR0(r0 / 10);
 }
 
@@ -60,6 +66,7 @@ void MQ4Sensor::calibrate() {
     r0 += mq4.calibrate(MQ4_CLEAN_AIR_RATIO);
     delay(1000);
   }
+  println("MQ-4 sensor calibrated with R0: " + String(r0 / 10));
   mq4.setR0(r0 / 10);
 }
 
@@ -70,6 +77,7 @@ void MQ6Sensor::calibrate() {
     r0 += mq6.calibrate(MQ6_CLEAN_AIR_RATIO);
     delay(1000);
   }
+  println("MQ-6 sensor calibrated with R0: " + String(r0 / 10));
   mq6.setR0(r0 / 10);
 }
 
@@ -80,6 +88,7 @@ void MQ135Sensor::calibrate() {
     r0 += mq135.calibrate(MQ135_CLEAN_AIR_RATIO);
     delay(1000);
   }
+  println("MQ-135 sensor calibrated with R0: " + String(r0 / 10));
   mq135.setR0(r0 / 10);
 }
 

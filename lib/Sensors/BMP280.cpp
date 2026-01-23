@@ -1,15 +1,15 @@
 #include "BMP280.h"
+#include "CustomPrint.h"
 
 BMP280_Sensor::BMP280_Sensor() : bmp() {}
 
 void BMP280_Sensor::begin() {
-  Serial.println("BMP280 Test");
   bmp.begin(BMP280_ADDRESS);
 
-  // if (!bmp.begin(BMP280_ADDRESS)) {
-  //   Serial.println("❌ BMP280 not found!");
-  //   while (1);
-  // }
+  if (!bmp.begin(BMP280_ADDRESS)) {
+    println("BMP280 not found!");
+    while (1);
+  }
 
   // Optional: configure sensor
   bmp.setSampling(
@@ -20,7 +20,7 @@ void BMP280_Sensor::begin() {
     Adafruit_BMP280::STANDBY_MS_500
   );
 
-  Serial.println("✅ BMP280 initialized");
+  println("BMP280 initialized");
 }
 
 float BMP280_Sensor::readTemperature() {

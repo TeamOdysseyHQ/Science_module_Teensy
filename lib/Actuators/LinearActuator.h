@@ -3,10 +3,10 @@
 
 
 enum MicrostepMode {
-    FULL,
-    MICRO_1_8,
-    MICRO_1_16,
-    MICRO_1_32
+    FULL = 0,
+    MICRO_1_4 = 4,
+    MICRO_1_8 = 8,
+    MICRO_1_16 = 16
 };
 
 class LinearActuator

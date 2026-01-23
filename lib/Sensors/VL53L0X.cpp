@@ -1,4 +1,5 @@
 #include "VL53L0X.h"
+#include "CustomPrint.h"
 
 VL53L0X_Sensor::VL53L0X_Sensor() {}
 
@@ -6,15 +7,15 @@ bool VL53L0X_Sensor::begin() {
   // Initialize I2C
   Wire.begin(); // SDA=18, SCL=19
 
-  Serial.println("VL53L0X Test");
+  println("VL53L0X Test");
 
   if (!lox.begin()) {
-    Serial.println("Failed to boot VL53L0X");
+    println("Failed to boot VL53L0X");
     // while (1);
     return false;
   }
 
-  Serial.println("VL53L0X ready!");
+  println("VL53L0X ready!");
   return true;
 }
 

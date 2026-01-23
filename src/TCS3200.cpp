@@ -1,13 +1,13 @@
-#include <Arduino.h>
+// #include <Arduino.h>
 
-// ===== TCS3200 Pins =====
-#define S0 2
-#define S1 3
-#define S2 4
-#define S3 5
-#define OUT_PIN 6
+// // ===== TCS3200 Pins =====
+// #define S0 2
+// #define S1 3
+// #define S2 4
+// #define S3 5
+// #define OUT_PIN 6
 
-unsigned long redFreq, greenFreq, blueFreq;
+// unsigned long redFreq, greenFreq, blueFreq;
 
 // void setup() {
 //   Serial.begin(115200);
@@ -53,9 +53,20 @@ unsigned long redFreq, greenFreq, blueFreq;
 //     redFreq < 200 &&       // Moderate red
 //     greenFreq > 250        // Low green
 //   ) {
-//     Serial.println("🎨 Violet Color Detected");
+//     Serial.println("Violet Color Detected");
 //   } else {
 //     Serial.println("Color Not Violet");
+//   }
+
+//   // colorless detection
+//   if (
+//     blueFreq > 1000 &&      // Low blue intensity
+//     redFreq > 1000 &&       // Low red
+//     greenFreq > 1000        // Low green
+//   ) {
+//     Serial.println("Colorless Detected");
+//   } else {
+//     Serial.println("Color Not Colorless");
 //   }
 
 //   Serial.println("--------------------");

@@ -7,6 +7,7 @@ public:
     TCS3200_Sensor(int s0, int s1, int s2, int s3, int outPin);
     void begin();
     bool isColorViolet();
+    bool isColorless();
 private:
     unsigned long readColor(bool s2, bool s3);
     unsigned long redFreq, greenFreq, blueFreq;

@@ -5,6 +5,7 @@
  * @date 2024-06-16
  */
 #include "DrillMotor.h"
+#include "CustomPrint.h"
 
 DrillMotor::DrillMotor(int pwmPin, int dirPin, int slpPin)
     : MOTOR_PWM(pwmPin), MOTOR_DIR(dirPin), MOTOR_SLP(slpPin) {}
@@ -16,6 +17,7 @@ void DrillMotor::setup() {
 
   digitalWrite(MOTOR_SLP, HIGH); // Enable driver
   analogWrite(MOTOR_PWM, 0);
+  println("=== Drill Motor Initialized ===");
 }
 
 void DrillMotor::handleDirectionChange() {

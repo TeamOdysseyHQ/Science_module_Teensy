@@ -1,10 +1,16 @@
 #include "MPU6050Sensor.h"
+#include "CustomPrint.h"
 
 MPU6050_Sensor::MPU6050_Sensor() {}
 
 void MPU6050_Sensor::begin() {
     Wire.begin();
     mpu.initialize();
+    if (mpu.testConnection()) {
+        println("MPU6050 connection successful");
+    } else {
+        println("MPU6050 connection failed");
+    }
 }
 
 bool MPU6050_Sensor::testConnection() {

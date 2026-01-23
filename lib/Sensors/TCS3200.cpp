@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "TCS3200.h"
+#include "CustomPrint.h"
 
 // ===== TCS3200 Pins =====
 // #define S0 2
@@ -27,7 +28,7 @@ void TCS3200_Sensor::begin() {
   // Set frequency scaling to 20%
   digitalWrite(s0, HIGH);
   digitalWrite(s1, LOW);
-  Serial.println("TCS3200 Violet Color Detection Started");
+  println("TCS3200 Violet Color Detection Started");
 }
 
 unsigned long TCS3200_Sensor::readColor(bool s2, bool s3) {
@@ -47,9 +48,7 @@ bool TCS3200_Sensor::isColorViolet() {
   // Read Green
   greenFreq = readColor(HIGH, HIGH);
 
-  Serial.print("R: "); Serial.print(redFreq);
-  Serial.print(" G: "); Serial.print(greenFreq);
-  Serial.print(" B: "); Serial.println(blueFreq);
+  println("R: " + String(redFreq) + " G: " + String(greenFreq) + " B: " + String(blueFreq));
 
   // ===== VIOLET DETECTION LOGIC =====
   // These values MUST be tuned after calibration
@@ -58,12 +57,33 @@ bool TCS3200_Sensor::isColorViolet() {
     redFreq < 200 &&       // Moderate red
     greenFreq > 250        // Low green
   ) {
-    Serial.println("🎨 Violet Color Detected");
-    Serial.println("--------------------");
     return true;
   } else {
-    Serial.println("Color Not Violet");
-    Serial.println("--------------------");
+    return false;
+  }
+}
+
+bool TCS3200_Sensor::isColorless() {
+  // Read Red
+  redFreq = readColor(LOW, LOW);
+
+  // Read Blue
+  blueFreq = readColor(LOW, HIGH);
+
+  // Read Green
+  greenFreq = readColor(HIGH, HIGH);
+
+  println("R: " + String(redFreq) + " G: " + String(greenFreq) + " B: " + String(blueFreq));
+
+  // ===== COLORLESS DETECTION LOGIC =====
+  // These values MUST be tuned after calibration
+  if (
+    blueFreq > 1000 &&      // Low blue intensity
+    redFreq > 1000 &&       // Low red
+    greenFreq > 1000        // Low green
+  ) {
+    return true;
+  } else {
     return false;
   }
 }
