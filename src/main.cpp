@@ -19,7 +19,7 @@
 #define DELAY_BETWEEN_SENSOR_READS 1000 // loop steps
 
 #define MQ135_ANALOG_PIN A3
-#define PH_ANALOG_PIN A0
+// #define PH_ANALOG_PIN A0
 #define S0 2
 #define S1 3
 #define S2 4
@@ -40,7 +40,7 @@
 #define MOTOR_DIR  5
 #define MOTOR_SLP  3
 
-// ================= Bareel pin definitions ==================
+// ================= Barrel pin definitions ==================
 #define B_STEP_PIN 7    
 #define B_DIR_PIN 8
 #define B_MS1_PIN 8
@@ -57,7 +57,7 @@ BMP280_Sensor bmp_sensor;
 // MQ4Sensor mq4(A4);
 // MQ6Sensor mq6(A2);
 MQ135Sensor mq135(MQ135_ANALOG_PIN);
-PHSensor ph_sensor(PH_ANALOG_PIN);
+// PHSensor ph_sensor(PH_ANALOG_PIN);
 NPK_MB_Sensor npk_sensor; // pins to be set in header file
 TCS3200_Sensor tcs3200_sensor(S0, S1, S2, S3, OUT_PIN);
 DHTSensor dht_sensor(DHT_PIN, DHT22_TYPE); // DHT sensor on pin 12
@@ -99,7 +99,7 @@ void setup() {
   dht_sensor.begin();
   analogReadResolution(10);
 
-  ph_sensor.begin();
+  // ph_sensor.begin();
   npk_sensor.begin();
   tcs3200_sensor.begin();
 //   mq2.begin();
@@ -127,7 +127,7 @@ void setup() {
   println("q: Drill Motor Clockwise");
   println("e: Drill Motor Anti-clockwise");
   println("b: Barrel Motor Rotate");
-  println("0: Full | 1: 1/8 | 2: 1/16 | 3: 1/32");
+  println("0: Full | 1: 1/4 | 2: 1/8 | 3: 1/16");
 #elif defined(DEBUG_MODE)
   println("=== Keyboard Control Ready ===");
   println("y: Toggle Science exploration mode");
@@ -138,7 +138,7 @@ void setup() {
   println("q: Drill Motor Clockwise");
   println("e: Drill Motor Anti-clockwise");
   println("b: Barrel Motor Rotate");
-  println("0: Full | 1: 1/8 | 2: 1/16 | 3: 1/32");
+  println("0: Full | 1: 1/4 | 2: 1/8 | 3: 1/16");
 #endif
 }
 
@@ -198,9 +198,10 @@ void loop() {
 //   print("MQ-6 Butane: "); print(mq6.readButane()); println(" ppm");
 
   print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
-  pH = ph_sensor.readPH();
-  print("pH Value: ");
-  println(pH, 2);
+
+  // pH = ph_sensor.readPH();
+  // print("pH Value: ");
+  // println(pH, 2);
 
   if(tcs3200_sensor.isColorViolet()) {
     println("TCS3200: Violet Color Detected");
@@ -435,9 +436,10 @@ void loop() {
     //   print("MQ-6 Butane: "); print(mq6.readButane()); println(" ppm");
 
     print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
-    pH = ph_sensor.readPH();
-    print("pH Value: ");
-    println(pH, 2);
+
+    // pH = ph_sensor.readPH();
+    // print("pH Value: ");
+    // println(pH, 2);
 
     if(tcs3200_sensor.isColorViolet()) {
       println("TCS3200: Violet Color Detected");
