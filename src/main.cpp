@@ -18,6 +18,10 @@
 #include "BarrelMotor.h"
 #include "PHServo.h"
 
+#include "PubSub.h"
+
+//Important: Put actual port no., calibirate threshold, calibirate color sensor, calibirate LA step size, calibirate barell step size
+
 #define DELAY_BETWEEN_SENSOR_READS 1000 // loop steps
 
 #define MQ135_ANALOG_PIN A3
@@ -73,7 +77,9 @@ DrillMotor drill_motor(MOTOR_PWM, MOTOR_DIR, MOTOR_SLP);
 BarrelMotor barrel_motor(B_STEP_PIN, B_DIR_PIN, B_MS1_PIN, B_MS2_PIN, B_MS3_PIN, B_ENABLE_PIN);
 PHServo ph_servo(SERVO_PIN);
 
-uint16_t distance, initial_distance_just_after_starting_drill = 0, dist_bw_sensor_drill = 5, cm_to_drill = 10;
+PubSub pubsub;
+
+uint16_t distance, initial_distance_just_after_starting_drill = 0, dist_bw_sensor_drill = 5, cm_to_drill = 10, depth = 0;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 // thresholds for shaking detection
@@ -81,22 +87,31 @@ int16_t ax_th_x_min = -1000, ay_th_y_min = -1000, az_th_z_min = -1000;
 int16_t ax_th_x_max = 1000, ay_th_y_max = 1000, az_th_z_max = 1000;
 int16_t gx_th_x_min = -1000, gy_th_y_min = -1000, gz_th_z_min = -1000;
 int16_t gx_th_x_max = 1000, gy_th_y_max = 1000, gz_th_z_max = 1000;
-float pH, humidity, drill_motor_ma, drill_motor_ma_threshold = 500.0f;
+float pH, humidity, drill_motor_ma, drill_motor_ma_threshold_1 = 500.0f, drill_motor_ma_threshold_2 = 700.0f;
 uint16_t nitrogen;
 uint16_t phosphorus;
 uint16_t potassium;
 
+bool currentServoToggleState = false;
 bool scienceModeEnable = false;
 bool isBFirstPressed = false;
 bool isStartDrillFlagged = false;
 bool isStopDrillFlagged = false;
 bool isShakeFlagged = false;
-bool isCurrentThresholdExceededFlagged = false;
+bool isCurrentThreshold1ExceededFlagged = false;
+bool isCurrentThreshold2ExceededFlagged = false;
+bool isDrillHalted = true;
+int messageCode = 0;
 
 int delayCounter = 0;
+int drillCooldownTimer = 1000; // while changing also change in loop where the value is being reset
 
 void setup() {
   Serial.begin(115200);
+
+#ifndef DEBUG_MODE
+  pubsub.init();
+#endif
 
 #ifdef DEBUG_MODE
   while (!Serial) {
@@ -350,8 +365,11 @@ void loop() {
         isStartDrillFlagged = false;
         isStopDrillFlagged = false;
         isShakeFlagged = false;
-        isCurrentThresholdExceededFlagged = false;
+        isCurrentThreshold1ExceededFlagged = false;
+        isCurrentThreshold2ExceededFlagged = false;
+        isDrillHalted = true;
         initial_distance_just_after_starting_drill = 0;
+        currentServoToggleState = false;
       }
       return;
     }
@@ -383,15 +401,31 @@ void loop() {
         break;
 
       case 'C': // Right
-        drill_motor.increaseSpeed();
-        Serial.print("drill Speed: ");
-        Serial.println(drill_motor.targetSpeed);
+        if (!isCurrentThreshold2ExceededFlagged)
+        {
+          drill_motor.increaseSpeed();
+          Serial.print("drill Speed: ");
+          Serial.println(drill_motor.targetSpeed);
+          isDrillHalted = false;
+        }
+        else
+        {
+          Serial.println("Drill motor speed change blocked due to overcurrent condition");
+        }
         break;
 
       case 'D': // left
-        drill_motor.decreaseSpeed();
-        Serial.print("drill Speed: ");
-        Serial.println(drill_motor.targetSpeed);
+        if (!isCurrentThreshold2ExceededFlagged)
+        {
+          drill_motor.decreaseSpeed();
+          Serial.print("drill Speed: ");
+          Serial.println(drill_motor.targetSpeed);
+          isDrillHalted = false;
+        }
+        else
+        {
+          Serial.println("Drill motor speed change blocked due to overcurrent condition");
+        }
         break;
       case 'b': // Barrel Motor Rotate
         Serial.println("Barrel Motor Rotate 60 degrees");
@@ -405,6 +439,7 @@ void loop() {
           {
             Serial.println("Toggling PH Servo Position");
             ph_servo.togglePosition();
+            currentServoToggleState = !currentServoToggleState;
           }
           break;
       // --------- Microstep Selection ---------
@@ -443,11 +478,15 @@ void loop() {
       println("INFO: start drilling");
       initial_distance_just_after_starting_drill = distance;
       isStartDrillFlagged = true;
+      messageCode = 1; // start drilling
     }
+
+    depth = initial_distance_just_after_starting_drill - distance;
 
     if(initial_distance_just_after_starting_drill - distance >= cm_to_drill*10 && isStartDrillFlagged && !isStopDrillFlagged) {
       println("WARNING: stop drilling");
       isStopDrillFlagged = true;
+      messageCode = 2; // stop drilling
     }
 
     if((ax < ax_th_x_min || ax > ax_th_x_max ||
@@ -457,12 +496,29 @@ void loop() {
         gy < gy_th_y_min || gy > gy_th_y_max ||
         gz < gz_th_z_min || gz > gz_th_z_max) && !isShakeFlagged) {
       println("ALERT: Shake Detected!");
+      messageCode = 3; // shake detected
       isShakeFlagged = true;
     }
 
-    if(drill_motor_ma > drill_motor_ma_threshold && !isCurrentThresholdExceededFlagged) {
+    if(drill_motor_ma > drill_motor_ma_threshold_1 && !isCurrentThreshold1ExceededFlagged) {
       println("ALERT: Current Threshold Exceeded!");
-      isCurrentThresholdExceededFlagged = true;
+      isCurrentThreshold1ExceededFlagged = true;
+      messageCode = 4; // current threshold 1 exceeded
+    }
+
+    if (drill_motor_ma > drill_motor_ma_threshold_2 && !isCurrentThreshold2ExceededFlagged) {
+      println("CRITICAL ALERT: Current Threshold 2 Exceeded! stooping drill motor");
+      drill_motor.stopMotor();
+      isCurrentThreshold2ExceededFlagged = true;
+      isDrillHalted = true;
+      messageCode = 5; // current threshold 2 exceeded
+    }
+
+    if (isCurrentThreshold2ExceededFlagged && drillCooldownTimer > 0) drillCooldownTimer--;
+    else
+    {
+      isCurrentThreshold2ExceededFlagged = false;
+      drillCooldownTimer = 1000;
     }
 
     println("---------------------------");
@@ -556,7 +612,149 @@ void loop() {
     delayCounter = 0;
   }
 #else // Production code
-//Note: to be implemented combined mode
+  pubsub.handle_subscriptions();
+  scienceModeEnable = science_module_toggle;
+  if (scienceModeEnable) {} 
+  else {
+    isBFirstPressed = false;
+    isStartDrillFlagged = false;
+    isStopDrillFlagged = false;
+    isShakeFlagged = false;
+    isCurrentThreshold1ExceededFlagged = false;
+    isCurrentThreshold2ExceededFlagged = false;
+    isDrillHalted = true;
+    initial_distance_just_after_starting_drill = 0;
+    return;
+  }
+  // ============ All controls ==================
+  // Linear Actuator controls
+  if(linear_actuator_cmd == 1) // Up Arrow
+    linear_actuator.rotateMotor(true, linear_actuator.stepsPerMove);
+  else if(linear_actuator_cmd == -1) // Down Arrow
+    linear_actuator.rotateMotor(false, linear_actuator.stepsPerMove);
+  if(linear_actuator_cmd == 0) linear_actuator.setMicrostepping(FULL);
+  else if(linear_actuator_cmd == 4) linear_actuator.setMicrostepping(MICRO_1_4);
+  else if(linear_actuator_cmd == 8) linear_actuator.setMicrostepping(MICRO_1_8);
+  else if(linear_actuator_cmd == 16) linear_actuator.setMicrostepping(MICRO_1_16);
+  // drill motor controls
+  if(drill_cmd == -2) // CLOCKWISE
+    drill_motor.changeDirection(CLOCKWISE);
+  else if(drill_cmd == 2) // ANTICLOCKWISE
+    drill_motor.changeDirection(ANTICLOCKWISE);
+
+  if(drill_cmd == 1) // Right
+  {
+    if (!isCurrentThreshold2ExceededFlagged)
+    {
+      drill_motor.increaseSpeed();
+      isDrillHalted = false;
+    }
+  }
+  else if(drill_cmd == -1) // left
+  {
+    if (!isCurrentThreshold2ExceededFlagged)
+    {
+      drill_motor.decreaseSpeed();
+      isDrillHalted = false;
+    }
+  }
+
+  if(barrel_cmd == 1) // Barrel Motor Rotate
+  {
+    isBFirstPressed = true;
+    barrel_motor.rotateDegrees(BAREL_ROTATE_DEG);
+  }
+  if (barrel_cmd == 0) barrel_motor.setMicrostepping(FULL);
+  else if (barrel_cmd == 4) barrel_motor.setMicrostepping(MICRO_1_4);
+  else if (barrel_cmd == 8) barrel_motor.setMicrostepping(MICRO_1_8);
+  else if (barrel_cmd == 16) barrel_motor.setMicrostepping(MICRO_1_16);
+
+  // PH Servo Toggle
+  if (servo_toggle != currentServoToggleState && isBFirstPressed)
+  {
+    ph_servo.togglePosition();
+    currentServoToggleState = servo_toggle;
+  }
+
+  // ========== reset commands ==========
+  linear_actuator_cmd = LINEAR_ACTUATOR_CMD_DEFAULT;
+  barrel_cmd = BARREL_CMD_DEFAULT;
+  drill_cmd = DRILL_CMD_DEFAULT;
+
+  delayCounter += 1;
+
+  // print drill values only after every defined delay
+  if(delayCounter > DELAY_BETWEEN_SENSOR_READS)
+  {
+    // get drill sensor values
+    mpu_sensor.getAcceleration(&ax, &ay, &az);
+    mpu_sensor.getRotation(&gx, &gy, &gz);
+    distance = vl53l0x.readDistance();
+    drill_motor_ma = current_sensor.readCurrent();
+
+    if(distance - dist_bw_sensor_drill <=0 && !isStartDrillFlagged) {
+      pubsub.publish_info_warning(1); // publish start drilling info
+      initial_distance_just_after_starting_drill = distance;
+      isStartDrillFlagged = true;
+      messageCode = 1; // start drilling
+    }
+
+    depth = initial_distance_just_after_starting_drill - distance;
+
+    if(initial_distance_just_after_starting_drill - distance >= cm_to_drill*10 && isStartDrillFlagged && !isStopDrillFlagged) {
+      pubsub.publish_info_warning(2); // publish stop drilling warning
+      isStopDrillFlagged = true;
+      messageCode = 2; // stop drilling
+    }
+
+    if((ax < ax_th_x_min || ax > ax_th_x_max ||
+        ay < ay_th_y_min || ay > ay_th_y_max ||
+        az < az_th_z_min || az > az_th_z_max ||
+        gx < gx_th_x_min || gx > gx_th_x_max ||
+        gy < gy_th_y_min || gy > gy_th_y_max ||
+        gz < gz_th_z_min || gz > gz_th_z_max) && !isShakeFlagged) {
+      pubsub.publish_info_warning(3); // publish shake detected alert
+      messageCode = 3; // shake detected
+      isShakeFlagged = true;
+    }
+
+    if(drill_motor_ma > drill_motor_ma_threshold_1 && !isCurrentThreshold1ExceededFlagged) {
+      pubsub.publish_info_warning(4); // publish current threshold 1 exceeded alert
+      isCurrentThreshold1ExceededFlagged = true;
+      messageCode = 4; // current threshold 1 exceeded
+    }
+
+    if (drill_motor_ma > drill_motor_ma_threshold_2 && !isCurrentThreshold2ExceededFlagged) {
+      pubsub.publish_info_warning(5); // publish current threshold 2 exceeded alert
+      drill_motor.stopMotor();
+      isCurrentThreshold2ExceededFlagged = true;
+      isDrillHalted = true;
+      messageCode = 5; // current threshold 2 exceeded
+    }
+
+    if (isCurrentThreshold2ExceededFlagged && drillCooldownTimer > 0) drillCooldownTimer--;
+    else
+    {
+      isCurrentThreshold2ExceededFlagged = false;
+      drillCooldownTimer = 1000;
+    }
+
+    pubsub.publish_drill_data(isDrillHalted, distance, ax, ay, az, gx, gy, gz);
+  }
+
+  if (isBFirstPressed && delayCounter > DELAY_BETWEEN_SENSOR_READS) {
+    pubsub.publish_sensor_data(
+      tcs3200_sensor.isColorless(), 
+      tcs3200_sensor.isColorViolet(), 
+      dht_sensor.getHumidity(), nitrogen, phosphorus, potassium, 0, 
+      mq135.readCO2(), bmp_sensor.readTemperature(), 
+      bmp_sensor.readPressure(), bmp_sensor.readAltitude(),
+      depth, 0,0);
+  }
+
+  if (delayCounter > DELAY_BETWEEN_SENSOR_READS) {
+    delayCounter = 0;
+  }
 #endif
 }
 
