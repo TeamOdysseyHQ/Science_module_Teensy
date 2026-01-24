@@ -74,3 +74,8 @@ void DrillMotor::decreaseSpeed() {
   if (targetSpeed < 0) targetSpeed = 0;
   rampToSpeed(targetSpeed);
 }
+
+void DrillMotor::stopMotor() {
+  targetSpeed = 0;
+  rampToSpeed(targetSpeed);
+}

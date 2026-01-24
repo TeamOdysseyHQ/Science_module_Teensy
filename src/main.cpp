@@ -6,20 +6,23 @@
 #include "VL53L0X.h"
 #include "BMP280.h"
 #include "GasSensors.h"
-#include "PH.h"
+// #include "PH.h"
 #include "NPK_ModBuster.h"
 #include "TCS3200.h"
 #include "DHTSensor.h"
+#include "CurrentSensor.h"
 
 // actuators
 #include "LinearActuator.h"
 #include "DrillMotor.h"
 #include "BarrelMotor.h"
+#include "PHServo.h"
 
 #define DELAY_BETWEEN_SENSOR_READS 1000 // loop steps
 
 #define MQ135_ANALOG_PIN A3
 // #define PH_ANALOG_PIN A0
+#define ACS_PIN A0
 #define S0 2
 #define S1 3
 #define S2 4
@@ -49,6 +52,8 @@
 #define B_ENABLE_PIN 11
 #define BAREL_ROTATE_DEG 60.0
 
+#define SERVO_PIN 9 
+
 
 MPU6050_Sensor mpu_sensor;
 VL53L0X_Sensor vl53l0x;
@@ -61,21 +66,32 @@ MQ135Sensor mq135(MQ135_ANALOG_PIN);
 NPK_MB_Sensor npk_sensor; // pins to be set in header file
 TCS3200_Sensor tcs3200_sensor(S0, S1, S2, S3, OUT_PIN);
 DHTSensor dht_sensor(DHT_PIN, DHT22_TYPE); // DHT sensor on pin 12
+CurrentSensor current_sensor(ACS_PIN);
 
 LinearActuator linear_actuator(LA_STEP_PIN, LA_DIR_PIN, LA_MS1_PIN, LA_MS2_PIN, LA_MS3_PIN, LA_ENABLE_PIN);
 DrillMotor drill_motor(MOTOR_PWM, MOTOR_DIR, MOTOR_SLP);
 BarrelMotor barrel_motor(B_STEP_PIN, B_DIR_PIN, B_MS1_PIN, B_MS2_PIN, B_MS3_PIN, B_ENABLE_PIN);
+PHServo ph_servo(SERVO_PIN);
 
-uint16_t distance;
+uint16_t distance, initial_distance_just_after_starting_drill = 0, dist_bw_sensor_drill = 5, cm_to_drill = 10;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
-float pH, humidity;
+// thresholds for shaking detection
+int16_t ax_th_x_min = -1000, ay_th_y_min = -1000, az_th_z_min = -1000;
+int16_t ax_th_x_max = 1000, ay_th_y_max = 1000, az_th_z_max = 1000;
+int16_t gx_th_x_min = -1000, gy_th_y_min = -1000, gz_th_z_min = -1000;
+int16_t gx_th_x_max = 1000, gy_th_y_max = 1000, gz_th_z_max = 1000;
+float pH, humidity, drill_motor_ma, drill_motor_ma_threshold = 500.0f;
 uint16_t nitrogen;
 uint16_t phosphorus;
 uint16_t potassium;
 
 bool scienceModeEnable = false;
 bool isBFirstPressed = false;
+bool isStartDrillFlagged = false;
+bool isStopDrillFlagged = false;
+bool isShakeFlagged = false;
+bool isCurrentThresholdExceededFlagged = false;
 
 int delayCounter = 0;
 
@@ -87,10 +103,19 @@ void setup() {
     ; // Wait for serial monitor to connect
   }
 #endif
+
+#ifndef SENSOR_ONLY_MODE // cause this sensor only works with actuators
+  // current sensor
+  current_sensor.begin();
+  delay(2000); // allow sensor to stabilize
+  current_sensor.calibrateZeroCurrent();
+#endif
+
   // actuators
   linear_actuator.setup();
   drill_motor.setup();
   barrel_motor.setup();
+  ph_servo.setup();
 #ifndef ACTUATOR_ONLY_MODE
   //sensors
   mpu_sensor.begin();
@@ -107,14 +132,14 @@ void setup() {
 //   mq6.begin();
   mq135.begin();
 
-  println("Calibrating sensors in clean air... for 20 seconds");
+  println("Preheating MQ sensors for 20 seconds");
   delay(20000); // Preheat
 
 //   mq2.calibrate();
 //   mq4.calibrate();
 //   mq6.calibrate();
-    mq135.calibrate();
-
+  println("MQ sensor preheat complete, calibrating sensors...");
+  mq135.calibrate();
   println("Calibration complete");
 #endif
 
@@ -127,6 +152,7 @@ void setup() {
   println("q: Drill Motor Clockwise");
   println("e: Drill Motor Anti-clockwise");
   println("b: Barrel Motor Rotate");
+  println("s: Toggle PH Servo Position");
   println("0: Full | 1: 1/4 | 2: 1/8 | 3: 1/16");
 #elif defined(DEBUG_MODE)
   println("=== Keyboard Control Ready ===");
@@ -138,6 +164,7 @@ void setup() {
   println("q: Drill Motor Clockwise");
   println("e: Drill Motor Anti-clockwise");
   println("b: Barrel Motor Rotate");
+  println("s: Toggle PH Servo Position");
   println("0: Full | 1: 1/4 | 2: 1/8 | 3: 1/16");
 #endif
 }
@@ -231,6 +258,8 @@ void loop() {
   delay(1000);
 #elif defined(ACTUATOR_ONLY_MODE)
   static uint8_t escState = 0;
+  print("Current (mA): ");
+  println(current_sensor.readCurrent());
   if (Serial.available()) {
     char c = Serial.read();
 
@@ -285,6 +314,12 @@ void loop() {
           Serial.println("Barrel Motor Rotate 60 degrees");
           barrel_motor.rotateDegrees(BAREL_ROTATE_DEG);
           break;
+        // PH Servo Toggle
+        case 's':
+        case 'S':
+          Serial.println("Toggling PH Servo Position");
+          ph_servo.togglePosition();
+          break;
         // --------- Microstep Selection ---------
         case '0':
           linear_actuator.setMicrostepping(FULL);
@@ -298,8 +333,6 @@ void loop() {
         case '3':
           linear_actuator.setMicrostepping(MICRO_1_16);
           break;
-        default:
-          return;
       }
     }
   }
@@ -314,6 +347,11 @@ void loop() {
       } else {
         println("Science Exploration Mode Disabled");
         isBFirstPressed = false;
+        isStartDrillFlagged = false;
+        isStopDrillFlagged = false;
+        isShakeFlagged = false;
+        isCurrentThresholdExceededFlagged = false;
+        initial_distance_just_after_starting_drill = 0;
       }
       return;
     }
@@ -333,11 +371,12 @@ void loop() {
         linear_actuator.rotateMotor(false, linear_actuator.stepsPerMove);
         break;
       // drill motor controls
+      case 'Q':
       case 'q': // CLOCKWISE
         drill_motor.changeDirection(CLOCKWISE);
         Serial.println("drill Clockwise");
         break;
-
+      case 'E':
       case 'e': // ANTICLOCKWISE
         drill_motor.changeDirection(ANTICLOCKWISE);
         Serial.println("drill Anti-clockwise");
@@ -359,18 +398,31 @@ void loop() {
         isBFirstPressed = true;
         barrel_motor.rotateDegrees(BAREL_ROTATE_DEG);
         break;
+      // PH Servo Toggle
+        case 's':
+        case 'S':
+          if (isBFirstPressed)
+          {
+            Serial.println("Toggling PH Servo Position");
+            ph_servo.togglePosition();
+          }
+          break;
       // --------- Microstep Selection ---------
       case '0':
         linear_actuator.setMicrostepping(FULL);
+        barrel_motor.setMicrostepping(FULL);
         break;
       case '1':
         linear_actuator.setMicrostepping(MICRO_1_4);
+        barrel_motor.setMicrostepping(MICRO_1_4);
         break;
       case '2':
         linear_actuator.setMicrostepping(MICRO_1_8);
+        barrel_motor.setMicrostepping(MICRO_1_8);
         break;
       case '3':
         linear_actuator.setMicrostepping(MICRO_1_16);
+        barrel_motor.setMicrostepping(MICRO_1_16);
         break;
     }
     return;
@@ -378,10 +430,40 @@ void loop() {
 
   delayCounter += 1;
 
+  // print drill values only after every defined delay
   if(delayCounter > DELAY_BETWEEN_SENSOR_READS)
   {
+    // get drill sensor values
     mpu_sensor.getAcceleration(&ax, &ay, &az);
     mpu_sensor.getRotation(&gx, &gy, &gz);
+    distance = vl53l0x.readDistance();
+    drill_motor_ma = current_sensor.readCurrent();
+
+    if(distance - dist_bw_sensor_drill <=0 && !isStartDrillFlagged) {
+      println("INFO: start drilling");
+      initial_distance_just_after_starting_drill = distance;
+      isStartDrillFlagged = true;
+    }
+
+    if(initial_distance_just_after_starting_drill - distance >= cm_to_drill*10 && isStartDrillFlagged && !isStopDrillFlagged) {
+      println("WARNING: stop drilling");
+      isStopDrillFlagged = true;
+    }
+
+    if((ax < ax_th_x_min || ax > ax_th_x_max ||
+        ay < ay_th_y_min || ay > ay_th_y_max ||
+        az < az_th_z_min || az > az_th_z_max ||
+        gx < gx_th_x_min || gx > gx_th_x_max ||
+        gy < gy_th_y_min || gy > gy_th_y_max ||
+        gz < gz_th_z_min || gz > gz_th_z_max) && !isShakeFlagged) {
+      println("ALERT: Shake Detected!");
+      isShakeFlagged = true;
+    }
+
+    if(drill_motor_ma > drill_motor_ma_threshold && !isCurrentThresholdExceededFlagged) {
+      println("ALERT: Current Threshold Exceeded!");
+      isCurrentThresholdExceededFlagged = true;
+    }
 
     println("---------------------------");
     print("Acc: ");
@@ -394,7 +476,7 @@ void loop() {
     print(gy); Serial.print(", ");
     println(gz);
 
-    distance = vl53l0x.readDistance();
+
     if (distance != 0xFFFF) {
       Serial.print("Distance: ");
       Serial.print(distance);

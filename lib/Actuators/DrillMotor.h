@@ -16,6 +16,7 @@ public:
     void changeDirection(Direction newDir);
     void increaseSpeed();
     void decreaseSpeed();
+    void stopMotor();
 private:
     // when connecting with base center they will give in percentage, must converted to 0-255 for PWM
     int currentSpeed = 0;
