@@ -1,9 +1,9 @@
-/**
- * @author: Rtamanyu N J
- * @date: 2024-06-16
- * @note: Works with JXBS-3001 NPK Sensor over Modbus RTU via RS485 (the correct register: - 21,22,23)
- * 
- */
+// /**
+//  * @author: Rtamanyu N J
+//  * @date: 2024-06-16
+//  * @note: Works with JXBS-3001 NPK Sensor over Modbus RTU via RS485 (the correct register: - 21,22,23)
+//  * 
+//  */
 
 // #include <ModbusMaster.h>
 

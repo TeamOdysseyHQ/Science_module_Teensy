@@ -14,14 +14,14 @@
 #define LINEAR_ACTUATOR_CMD_DEFAULT -6
 #define DRILL_CMD_DEFAULT -6
 #define BARREL_CMD_DEFAULT -6
-#define SERVO_TOGGLE_DEFAULT false
-#define SCIENCE_MODULE_TOGGLE_DEFAULT false
+#define SERVO_TOGGLE_DEFAULT -6
+#define SCIENCE_MODULE_TOGGLE_DEFAULT -6
 
 extern volatile int8_t linear_actuator_cmd;
 extern volatile int8_t drill_cmd;
 extern volatile int8_t barrel_cmd;
-extern volatile bool servo_toggle;
-extern volatile bool science_module_toggle;
+extern volatile int8_t servo_toggle;
+extern volatile int8_t science_module_toggle;
 
 class PubSub {
 public:
@@ -48,11 +48,15 @@ public:
         float longitude
     );
     void publish_info_warning(int32_t info_warning_code);
-    // void handle_subscriptions(int8_t &linear_actuator_cmd_out,
-    //                           int8_t &drill_cmd_out,
-    //                           bool &barrel_active_out,
-    //                           bool &servo_toggle_out,
-    //                           bool &science_module_toggle_out);
+
+    void publish_cmd_received(
+        int8_t linear_actuator_cmd,
+        int8_t drill_cmd,
+        int8_t barrel_cmd,
+        int8_t servo_toggle,
+        int8_t science_module_toggle
+    );
+
     void handle_subscriptions();
 private:
     // =================================================
@@ -70,6 +74,8 @@ private:
     rcl_publisher_t sensor_publisher;
     rcl_publisher_t info_warning_publisher;
 
+    rcl_publisher_t cmd_received_publisher;
+
     // =================================================
     // ================ SUBSCRIBERS ====================
     // =================================================
@@ -82,6 +88,8 @@ private:
     std_msgs__msg__Float32MultiArray sensor_msg;
     std_msgs__msg__Int32 info_warning_msg;
     std_msgs__msg__Int32MultiArray control_msg;
+
+    std_msgs__msg__Int32MultiArray cmd_received_msg;
     // =================================================
     // ================= BUFFERS =======================
     // =================================================
@@ -94,6 +102,9 @@ private:
     int32_t info_warning_buffer;
 
     int32_t command_data_buffer[5];
+
+    #define CMD_RECEIVED_ARRAY_SIZE 5
+    int32_t cmd_received_buffer[CMD_RECEIVED_ARRAY_SIZE];
 };
 
 #endif

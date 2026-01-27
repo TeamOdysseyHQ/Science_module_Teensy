@@ -4,8 +4,8 @@
 volatile int8_t linear_actuator_cmd = LINEAR_ACTUATOR_CMD_DEFAULT;
 volatile int8_t drill_cmd = DRILL_CMD_DEFAULT;
 volatile int8_t barrel_cmd = BARREL_CMD_DEFAULT;
-volatile bool servo_toggle = SERVO_TOGGLE_DEFAULT;
-volatile bool science_module_toggle = SCIENCE_MODULE_TOGGLE_DEFAULT;
+volatile int8_t servo_toggle = SERVO_TOGGLE_DEFAULT;
+volatile int8_t science_module_toggle = SCIENCE_MODULE_TOGGLE_DEFAULT;
 PubSub::PubSub() {}
 
 // =================================================
@@ -73,6 +73,23 @@ void PubSub::publish_info_warning(int32_t code) {
   rcl_publish(&info_warning_publisher, &info_warning_msg, NULL);
 }
 
+// ----- CMD RECEIVED PUBLISHER -----
+void PubSub::publish_cmd_received(
+    int8_t linear_actuator_cmd,
+    int8_t drill_cmd,
+    int8_t barrel_cmd,
+    int8_t servo_toggle,
+    int8_t science_module_toggle
+) {
+    cmd_received_buffer[0] = linear_actuator_cmd;
+    cmd_received_buffer[1] = drill_cmd;
+    cmd_received_buffer[2] = barrel_cmd;
+    cmd_received_buffer[3] = servo_toggle;
+    cmd_received_buffer[4] = science_module_toggle;
+
+    rcl_publish(&cmd_received_publisher, &cmd_received_msg, NULL);
+}
+
 // =================================================
 // ============== SUBSCRIPTION CALLBACK ==============
 // =================================================
@@ -84,24 +101,9 @@ void subscription_callback(const void *msgin)
   linear_actuator_cmd = control_msg->data.data[0];
   drill_cmd = control_msg->data.data[1];
   barrel_cmd = control_msg->data.data[2];
-  servo_toggle = control_msg->data.data[3] == 1 ? true : false;
-  science_module_toggle = control_msg->data.data[4] == 1 ? true : false;
+  servo_toggle = control_msg->data.data[3];
+  science_module_toggle = control_msg->data.data[4];
 }
-
-// void PubSub::handle_subscriptions(int8_t &linear_actuator_cmd_out,
-//                                  int8_t &drill_cmd_out,
-//                                  int8_t &barrel_cmd_out,
-//                                  bool &servo_toggle_out,
-//                                  bool &science_module_toggle_out) {
-//   // call the subscription callback which checks for new messages automatically
-//   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(1));
-
-//   linear_actuator_cmd_out = linear_actuator_cmd;
-//   drill_cmd_out = drill_cmd;
-//   barrel_cmd_out = barrel_cmd;
-//   servo_toggle_out = servo_toggle;
-//   science_module_toggle_out = science_module_toggle;
-// }
 
 void PubSub::handle_subscriptions() {
   // call the subscription callback which checks for new messages automatically
@@ -110,7 +112,11 @@ void PubSub::handle_subscriptions() {
 
 void PubSub::init() {
   set_microros_transports();
-  delay(2000);
+
+  // 3️⃣ Retry agent connection
+  while (rmw_uros_ping_agent(1000, 5) != RMW_RET_OK) {
+    delay(1000);
+  }
 
   allocator = rcl_get_default_allocator();
   rclc_support_init(&support, 0, NULL, &allocator);
@@ -157,6 +163,17 @@ void PubSub::init() {
   );
 
   info_warning_msg.data = info_warning_buffer;
+
+  // ---- CMD RECEIVED publisher ----
+  rclc_publisher_init_default(
+    &cmd_received_publisher,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray),
+    "science_cmd_received"
+  );
+  cmd_received_msg.data.data = cmd_received_buffer;
+  cmd_received_msg.data.size = CMD_RECEIVED_ARRAY_SIZE;
+  cmd_received_msg.data.capacity = CMD_RECEIVED_ARRAY_SIZE;
 
   // ==== SUBSCRIBER ======
   rclc_subscription_init_default(

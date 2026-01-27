@@ -10,7 +10,7 @@ enum Direction {
 
 class DrillMotor {
 public:
-    int targetSpeed = 120;     // Desired speed (0–255)
+    int targetSpeed = 0;     // Desired speed (0–255)
     DrillMotor(int pwmPin, int dirPin, int slpPin);
     void setup();
     void changeDirection(Direction newDir);

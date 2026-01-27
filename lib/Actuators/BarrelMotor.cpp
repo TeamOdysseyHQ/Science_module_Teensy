@@ -1,69 +1,72 @@
 #include "BarrelMotor.h"
 #include "CustomPrint.h"
- 
-BarrelMotor::BarrelMotor(int stepPin, int dirPin, int ms1Pin, int ms2Pin, int ms3Pin, int enablePin)
-    : STEP_PIN(stepPin), DIR_PIN(dirPin), MS1_PIN(ms1Pin), MS2_PIN(ms2Pin), MS3_PIN(ms3Pin), ENABLE_PIN(enablePin) {}
 
 
-void BarrelMotor::setMicrostepping(int mode) {
-  switch (mode) {
-    case 0: // Full step
-      digitalWrite(MS1_PIN, LOW);
-      digitalWrite(MS2_PIN, LOW);
-      digitalWrite(MS3_PIN, LOW);
-      microstepMultiplier = 1;
-      println("Barrel Microstep: FULL (1/1)");
-      break;
+// ================= PIN DEFINITIONS =================
+// #define STEP_PIN    7 (TB6600) - 10 (B126)
+// #define DIR_PIN     8 (TB6600) - 11 (B126)
+// #define ENABLE_PIN  9 (TB6600) - 12 (B126)
 
-    case 1: // 1/4 step
-      digitalWrite(MS1_PIN, LOW);
-      digitalWrite(MS2_PIN, HIGH);
-      digitalWrite(MS3_PIN, LOW);
-      microstepMultiplier = 4;
-      println("Barrel Microstep: 1/4");
-      break;
+BarrelMotor::BarrelMotor(int step_pin, int dir_pin, int en_pin, bool isTB6600)
+    : STEP_PIN(step_pin), DIR_PIN(dir_pin), ENABLE_PIN(en_pin), isTB6600(isTB6600) {}
 
-    case 2: // 1/8 step
-      digitalWrite(MS1_PIN, HIGH);
-      digitalWrite(MS2_PIN, HIGH);
-      digitalWrite(MS3_PIN, LOW);
-      microstepMultiplier = 8;
-      println("Barrel Microstep: 1/8");
-      break;
-
-    case 3: // 1/16
-      digitalWrite(MS1_PIN, HIGH);
-      digitalWrite(MS2_PIN, HIGH);
-      digitalWrite(MS3_PIN, HIGH);
-      microstepMultiplier = 16;
-      println("Barrel Microstep: 1/16");
-      break;
-  }
-}
-
-void BarrelMotor::rotateDegrees(float degrees) {
-  long steps = (STEPS_PER_REV * microstepMultiplier * degrees) / 360.0;
-
-  digitalWrite(DIR_PIN, HIGH); // change direction if needed
-
-  for (long i = 0; i < steps; i++) {
-    digitalWrite(STEP_PIN, HIGH);
-    delayMicroseconds(800);   // speed control
-    digitalWrite(STEP_PIN, LOW);
-    delayMicroseconds(800);
-  }
-}
-
+// ================= SETUP ===========================
 void BarrelMotor::setup() {
-  pinMode(STEP_PIN, OUTPUT);
-  pinMode(DIR_PIN, OUTPUT);
-  pinMode(MS1_PIN, OUTPUT);
-  pinMode(MS2_PIN, OUTPUT);
-  pinMode(MS3_PIN, OUTPUT);
   pinMode(ENABLE_PIN, OUTPUT);
+  if (isTB6600)
+   digitalWrite(ENABLE_PIN, LOW);       // Enable TB6600 
+  else
+   digitalWrite(ENABLE_PIN, HIGH);       // Enable B126
 
-  digitalWrite(ENABLE_PIN, LOW); // Enable driver
+  // IMPORTANT for TB6600 pulse timing
+  stepper.setMinPulseWidth(5);         // µs (REQUIRED)
 
-  setMicrostepping(microstepMode);
-  println("=== Barrel Motor Initialized ===");
+  stepper.setMaxSpeed(stepperSpeed);
+  stepper.setAcceleration(stepperAccel);
+
+  println("=== TB6600 Stepper Ready ===");
+  println("Press 'f' to rotate 240 forward degrees");
+  println("Press 'b' to rotate 240 backward degrees");
+  print("Microstepping (DIP): 1/");
+  println(MICROSTEP);
+  print("Steps for 240°: ");
+  println(STEPS_240_DEG);
+}
+
+// ================= LOOP ============================
+void BarrelMotor::run() {
+  stepper.run();   // NON-BLOCKING
+
+  // Motion complete detection
+  if (motorRunning && stepper.distanceToGo() == 0) {
+    motorRunning = false;
+    println("Movement complete.");
+  }
+}
+
+// ================= SERIAL INPUT ====================
+void BarrelMotor::handleBarellRotateInput(bool forward) {
+  if (!motorRunning) {
+    rotate240deg(forward);
+  } else {
+    println("Motor busy. Wait...");
+  }
+}
+
+// ================= ROTATION ========================
+void BarrelMotor::rotate240deg(bool forward) {
+  motorRunning = true;
+
+  if (forward)
+  {
+    stepper.move(STEPS_240_DEG);
+    print("Rotating 240° → ");
+  }
+  else {
+    stepper.move(-STEPS_240_DEG);
+    print("Rotating 240° ← ");
+  }
+
+  print(STEPS_240_DEG);
+  println(" steps");
 }
