@@ -4,7 +4,7 @@
 MPU6050_Sensor::MPU6050_Sensor() {}
 
 void MPU6050_Sensor::begin() {
-    Wire.begin();
+    Wire2.begin();
     mpu.initialize();
     if (mpu.testConnection()) {
         println("MPU6050 connection successful");

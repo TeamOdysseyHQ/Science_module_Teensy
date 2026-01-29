@@ -5,7 +5,7 @@ VL53L0X_Sensor::VL53L0X_Sensor() {}
 
 bool VL53L0X_Sensor::begin() {
   // Initialize I2C
-  Wire.begin(); // SDA=18, SCL=19
+  Wire2.begin(); // SDA=18, SCL=19
 
   println("VL53L0X Test");
 

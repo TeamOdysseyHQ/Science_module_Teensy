@@ -6,6 +6,11 @@ BMP280_Sensor::BMP280_Sensor() : bmp() {}
 void BMP280_Sensor::begin() {
   bmp.begin(BMP280_ADDRESS);
 
+  // Wire2.begin();
+  Wire.setSDA(25);   // SDA pin
+  Wire.setSCL(24);   // SCL pin
+  Wire.begin();
+
   if (!bmp.begin(BMP280_ADDRESS)) {
     println("BMP280 not found!");
     while (1);

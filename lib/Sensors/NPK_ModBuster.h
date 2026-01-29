@@ -4,8 +4,8 @@
 #include <ModbusMaster.h>
   
   /* ---------------- RS485 Pins ---------------- */
-#define RS485_DE 5     // Driver Enable
-#define RS485_RE 6     // Receiver Enable (Active LOW)
+#define RS485_DE 15     // Driver Enable
+#define RS485_RE 14     // Receiver Enable (Active LOW)
 #define RS485Serial Serial4  // Use hardware Serial4 (RX=RO=16, TX=DI=17)
 
 /* -------------- Modbus Object --------------- */

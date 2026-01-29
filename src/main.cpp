@@ -29,15 +29,15 @@
 #define DELAY_BETWEEN_SENSOR_READS 1000 // loop steps
 
 // #define MQ135_ANALOG_PIN A3 // change to digital
-#define MQ135_DIGITAL_PIN 3
+#define MQ135_DIGITAL_PIN 5
 // #define PH_ANALOG_PIN A0
-#define ACS_PIN A10
+#define ACS_PIN A14
 // #define S0 2
 // #define S1 3
 // #define S2 4
 // #define S3 5
 // #define OUT_PIN 6
-#define DHT_PIN 4
+#define DHT_PIN 6
 
 // ================== Linear Actuator PIN DEFINITIONS (TB6600 motor driver) ==================
 #define LA_STEP_PIN 7
@@ -109,6 +109,7 @@ bool isShakeFlagged = false;
 bool isCurrentThreshold1ExceededFlagged = false;
 bool isCurrentThreshold2ExceededFlagged = false;
 bool isDrillHalted = true;
+bool isCO2Detected = false;
 int messageCode = 0;
 
 int delayCounter = 0;
@@ -406,6 +407,7 @@ void loop() {
         isDrillHalted = true;
         initial_distance_just_after_starting_drill = 0;
         currentServoToggleState = false;
+        isCO2Detected = false;
       }
       return;
     }
@@ -655,6 +657,10 @@ void loop() {
     //   print("MQ-6 Butane: "); print(mq6.readButane()); println(" ppm");
 
     // print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
+    if (!isCO2Detected && mq135_digital.isCO2Detected()) {
+      println("ALERT: MQ-135 CO2 Detected!");
+      isCO2Detected = true;
+    }
     print("MQ-135 CO2 (Digital): ");
     print(mq135_digital.isCO2Detected());
 
@@ -721,6 +727,7 @@ void loop() {
     isCurrentThreshold2ExceededFlagged = false;
     isDrillHalted = true;
     ph_servo_position = false;
+    isCO2Detected = false;
     initial_distance_just_after_starting_drill = 0;
     println("Science Exploration Mode Disabled");
     return;
@@ -884,6 +891,11 @@ void loop() {
     pubsub.publish_drill_data(isDrillHalted, distance, ax, ay, az, gx, gy, gz);
   }
 
+  if (!isCO2Detected && mq135_digital.isCO2Detected()) {
+      println("ALERT: MQ-135 CO2 Detected!");
+      isCO2Detected = true;
+    }
+
   if (isBFirstPressed && delayCounter > DELAY_BETWEEN_SENSOR_READS) {
     pubsub.publish_sensor_data(
       -6, //tcs3200_sensor.isColorless(), 
@@ -891,7 +903,7 @@ void loop() {
       dht_sensor.getHumidity(), nitrogen, phosphorus, potassium, 
       0, //ph placeholder
       // mq135.readCO2(), 
-      mq135_digital.isCO2Detected(),
+      isCO2Detected ? 1.0 : 0.0,
       bmp_sensor.readTemperature(), 
       bmp_sensor.readPressure(), bmp_sensor.readAltitude(),
       depth, 

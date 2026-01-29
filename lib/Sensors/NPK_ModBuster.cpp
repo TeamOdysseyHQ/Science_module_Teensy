@@ -13,13 +13,17 @@ NPK_MB_Sensor::NPK_MB_Sensor() {
 
 /* -------- Direction Control Functions -------- */
 void preTransmission() {
-  digitalWrite(RS485_RE, HIGH);  // Disable receiver
-  digitalWrite(RS485_DE, HIGH);  // Enable transmitter
+  // digitalWrite(RS485_RE, HIGH);  // Disable receiver
+  analogWrite(RS485_RE, 255);  // Disable receiver
+  analogWrite(RS485_DE, 255);  // Enable transmitter
+  // digitalWrite(RS485_DE, HIGH);  // Enable transmitter
 }
 
 void postTransmission() {
-  digitalWrite(RS485_DE, LOW);   // Disable transmitter
-  digitalWrite(RS485_RE, LOW);   // Enable receiver
+  // digitalWrite(RS485_DE, LOW);   // Disable transmitter
+  analogWrite(RS485_RE, 0);   // Enable receiver
+  analogWrite(RS485_DE, 0);   // Disable transmitter
+  // digitalWrite(RS485_RE, LOW);   // Enable receiver
 }
 
 void NPK_MB_Sensor::begin() {
