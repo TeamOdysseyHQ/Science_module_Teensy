@@ -13,6 +13,7 @@ BarrelMotor::BarrelMotor(int step_pin, int dir_pin, int en_pin, bool isTB6600)
 // ================= SETUP ===========================
 void BarrelMotor::setup() {
   pinMode(ENABLE_PIN, OUTPUT);
+  // most of the time enabled pin won't be connected to HIGH or LOW directly
   if (isTB6600)
    digitalWrite(ENABLE_PIN, LOW);       // Enable TB6600 
   else

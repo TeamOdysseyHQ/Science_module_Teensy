@@ -101,6 +101,7 @@ void LinearActuator::moveMotor(bool anticlockwise)
 void LinearActuator::setup()
 {
   pinMode(EN_PIN, OUTPUT);
+  // most of the time enabled pin won't be connected to HIGH or LOW directly
   if(isTB6600)
    digitalWrite(EN_PIN, LOW);   // Enable TB6600 
   else

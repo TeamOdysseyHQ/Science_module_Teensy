@@ -1,19 +1,19 @@
 // #include <Arduino.h>
 
 // // ================== PIN DEFINITIONS ==================
-// #define STEP_PIN 10
-// #define DIR_PIN  11
-// #define EN_PIN   12
+// #define STEP_PIN 7
+// #define DIR_PIN  8
+// #define EN_PIN   9
 
 // // ================== MOTOR PARAMETERS =================
-// const int stepsPerRev = 200;   // NEMA 17
-// int microsteps = 8;            // match TB6600 DIP switches
-// int revolutions = 3;           // n revolutions (CHANGE THIS)
+// // const int stepsPerRev = 200;   // NEMA 17
+// // int microsteps = 8;            // match TB6600 DIP switches
+// // int revolutions = 3;           // n revolutions (CHANGE THIS)
 
 // // ================== SPEED CONTROL ====================
-// int stepDelay = 1000; // microseconds (lower = faster)
+// int stepDelay = 500; // microseconds (lower = faster)
 
-// void rotateMotor(bool anticlockwise);
+// // void rotateMotor(bool anticlockwise);
 
 // // =====================================================
 // void setup() {
@@ -21,14 +21,15 @@
 //   pinMode(DIR_PIN, OUTPUT);
 //   pinMode(EN_PIN, OUTPUT);
 
-//   digitalWrite(EN_PIN, HIGH); // Enable TB6600 (LOW = enabled)
+//   digitalWrite(EN_PIN, LOW); // Enable TB6600 (LOW = enabled)
+//   digitalWrite(DIR_PIN, LOW); // Enable TB6600 (LOW = enabled)
 
 //   Serial.begin(115200);
-//   while (!Serial); // Wait for serial monitor
+// //   while (!Serial); // Wait for serial monitor
 
-//   Serial.println("TB6600 Stepper Control Ready");
-//   Serial.println("UP Arrow    -> Anticlockwise");
-//   Serial.println("DOWN Arrow  -> Clockwise");
+// //   Serial.println("TB6600 Stepper Control Ready");
+// //   Serial.println("UP Arrow    -> Anticlockwise");
+// //   Serial.println("DOWN Arrow  -> Clockwise");
 // }
 
 // // =====================================================
@@ -57,22 +58,22 @@
 // }
 
 // // =====================================================
-// void rotateMotor(bool anticlockwise) {
-//   long totalSteps = (long)stepsPerRev * microsteps * revolutions;
+// // void rotateMotor(bool anticlockwise) {
+// //   long totalSteps = (long)stepsPerRev * microsteps * revolutions;
 
-//   digitalWrite(DIR_PIN, anticlockwise ? HIGH : LOW);
+// //   digitalWrite(DIR_PIN, anticlockwise ? HIGH : LOW);
 
-//   Serial.print("Rotating ");
-//   Serial.print(revolutions);
-//   Serial.print(" revs ");
-//   Serial.println(anticlockwise ? "ANTI-CLOCKWISE" : "CLOCKWISE");
+// //   Serial.print("Rotating ");
+// //   Serial.print(revolutions);
+// //   Serial.print(" revs ");
+// //   Serial.println(anticlockwise ? "ANTI-CLOCKWISE" : "CLOCKWISE");
 
-//   for (long i = 0; i < totalSteps; i++) {
-//     digitalWrite(STEP_PIN, HIGH);
-//     delayMicroseconds(stepDelay);
-//     digitalWrite(STEP_PIN, LOW);
-//     delayMicroseconds(stepDelay);
-//   }
+// //   for (long i = 0; i < totalSteps; i++) {
+// //     digitalWrite(STEP_PIN, HIGH);
+// //     delayMicroseconds(stepDelay);
+// //     digitalWrite(STEP_PIN, LOW);
+// //     delayMicroseconds(stepDelay);
+// //   }
 
-//   Serial.println("Done\n");
-// }
+// //   Serial.println("Done\n");
+// // }

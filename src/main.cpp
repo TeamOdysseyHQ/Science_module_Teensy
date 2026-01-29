@@ -5,7 +5,8 @@
 #include "MPU6050Sensor.h"
 #include "VL53L0X.h"
 #include "BMP280.h"
-#include "GasSensors.h"
+#include "MQ135_digital.h"
+// #include "GasSensors.h"
 // #include "PH.h"
 #include "NPK_ModBuster.h"
 #include "TCS3200.h"
@@ -27,35 +28,38 @@
 
 #define DELAY_BETWEEN_SENSOR_READS 1000 // loop steps
 
-#define MQ135_ANALOG_PIN A3
+// #define MQ135_ANALOG_PIN A3 // change to digital
+#define MQ135_DIGITAL_PIN 3
 // #define PH_ANALOG_PIN A0
-#define ACS_PIN A0
+#define ACS_PIN A10
 // #define S0 2
 // #define S1 3
 // #define S2 4
 // #define S3 5
 // #define OUT_PIN 6
-#define DHT_PIN 12
+#define DHT_PIN 4
 
-// ================== Linear Actuator PIN DEFINITIONS ==================
+// ================== Linear Actuator PIN DEFINITIONS (TB6600 motor driver) ==================
 #define LA_STEP_PIN 7
 #define LA_DIR_PIN 8
 #define LA_ENABLE_PIN 9
 #define IS_LA_TB6600 true
 
 // --------------------------------- Drill Motor PIN DEFINITIONS -------------------------------
-#define MOTOR_PWM  2
-#define MOTOR_DIR  1
-#define MOTOR_SLP  3
+#define MOTOR_PWM  33
+#define MOTOR_DIR  34
+#define MOTOR_SLP  35
 
-// ================= Barrel pin definitions ==================
+// ================= Barrel pin definitions (B126 motor driver) ==================
 #define B_STEP_PIN 10  
 #define B_DIR_PIN 11
 #define B_ENABLE_PIN 12
 #define IS_BARELL_TB6600 false
 
-#define SERVO_PIN 41
-#define TEST_TUBE_DROPPER_SERVO_PIN 41
+#define SERVO_PIN 32
+// #define TEST_TUBE_DROPPER_SERVO_PIN 41
+
+// ================= DHT sensor pins must be defined in DHTSensor.h ==================
 
 
 MPU6050_Sensor mpu_sensor;
@@ -64,7 +68,8 @@ BMP280_Sensor bmp_sensor;
 // MQ2Sensor mq2(A4);
 // MQ4Sensor mq4(A4);
 // MQ6Sensor mq6(A2);
-MQ135Sensor mq135(MQ135_ANALOG_PIN);
+// MQ135Sensor mq135(MQ135_ANALOG_PIN);
+MQ135_Digital mq135_digital(MQ135_DIGITAL_PIN);
 // PHSensor ph_sensor(PH_ANALOG_PIN);
 NPK_MB_Sensor npk_sensor; // pins to be set in header file
 // TCS3200_Sensor tcs3200_sensor(S0, S1, S2, S3, OUT_PIN);
@@ -75,7 +80,7 @@ LinearActuator linear_actuator(LA_STEP_PIN, LA_DIR_PIN, LA_ENABLE_PIN, IS_LA_TB6
 DrillMotor drill_motor(MOTOR_PWM, MOTOR_DIR, MOTOR_SLP);
 BarrelMotor barrel_motor(B_STEP_PIN, B_DIR_PIN, B_ENABLE_PIN, IS_BARELL_TB6600);
 PHServo ph_servo(SERVO_PIN);
-TestTubeDropper test_tube_dropper(TEST_TUBE_DROPPER_SERVO_PIN);
+// TestTubeDropper test_tube_dropper(TEST_TUBE_DROPPER_SERVO_PIN);
 
 PubSub pubsub;
 
@@ -92,6 +97,8 @@ uint16_t nitrogen;
 uint16_t phosphorus;
 uint16_t potassium;
 
+
+//  warning and other flags
 bool currentServoToggleState = false;
 bool ph_servo_position = false; // false = up, true = down
 bool scienceModeEnable = false;
@@ -146,17 +153,19 @@ void setup() {
 //   mq2.begin();
 //   mq4.begin();
 //   mq6.begin();
-  mq135.begin();
+//  mq135.begin();
 
-  println("Preheating MQ sensors for 20 seconds");
-  delay(20000); // Preheat
+  mq135_digital.begin(); // no callibiration needed for digital MQ135
+
+  // println("Preheating MQ sensors for 20 seconds");
+  // delay(20000); // Preheat
 
 //   mq2.calibrate();
 //   mq4.calibrate();
 //   mq6.calibrate();
-  println("MQ sensor preheat complete, calibrating sensors...");
-  mq135.calibrate();
-  println("Calibration complete");
+  // println("MQ sensor preheat complete, calibrating sensors...");
+  // mq135.calibrate();
+  // println("Calibration complete");
 #endif
 
 #ifdef ACTUATOR_ONLY_MODE
@@ -171,7 +180,7 @@ void setup() {
   println("f: Barrel Motor Rotate forward");
   println("b: Barrel Motor Rotate backward");
   println("s: Toggle PH Servo Position");
-  println("d: Drop Test Tube");
+  // println("d: Drop Test Tube");
   println("0: Full | 1: 1/4 | 2: 1/8 | 3: 1/16");
 #elif defined(DEBUG_MODE) && !defined(SENSOR_ONLY_MODE)
   println("=== Keyboard Control Ready ===");
@@ -186,7 +195,7 @@ void setup() {
   println("f: Barrel Motor Rotate forward");
   println("b: Barrel Motor Rotate backward");
   println("s: Toggle PH Servo Position");
-  println("d: Drop Test Tube");
+  // println("d: Drop Test Tube");
   println("0: Full | 1: 1/4 | 2: 1/8 | 3: 1/16");
 #endif
 }
@@ -246,7 +255,9 @@ void loop() {
 //   print("MQ-6 Propane: ");.print(mq6.readPropane()); println(" ppm");
 //   print("MQ-6 Butane: "); print(mq6.readButane()); println(" ppm");
 
-  print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
+  // print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
+  print("MQ-135 CO2 (Digital): ");
+  print(mq135_digital.isCO2Detected());
 
   // pH = ph_sensor.readPH();
   // print("pH Value: ");
@@ -319,11 +330,11 @@ void loop() {
           println("Toggling PH Servo Position");
           ph_servo.togglePosition();
           break;
-        // drop the test tube
-        case 'd':
-          println("Dropping Test Tube");
-          test_tube_dropper.toggle();
-          break;
+        // // drop the test tube
+        // case 'd':
+        //   println("Dropping Test Tube");
+        //   test_tube_dropper.toggle();
+        //   break;
     }
 
     // --------- Arrow Key Handling (ESC sequences) ---------
@@ -374,6 +385,7 @@ void loop() {
     }
   }
 #elif defined(DEBUG_MODE)
+  static uint8_t escState = 0;
   barrel_motor.run();
   linear_actuator.run();
   if (Serial.available()) {
@@ -404,58 +416,32 @@ void loop() {
     //All controls
     switch (c) {
       // Linear Actuator controls
-      case 'A': // Up Arrow
-        if(!linear_actuator.motorRunning)
-        {
-            println("LA Rotate CW");
-            // linear_actuator.rotateMotor(true, linear_actuator.stepsPerMove);
-            linear_actuator.moveMotor(true);
-        }
-        break;
-      case 'B': // Down Arrow
-        if(!linear_actuator.motorRunning)
-        {
-            println("LA Rotate CCW");
-            // linear_actuator.rotateMotor(false, linear_actuator.stepsPerMove);
-            linear_actuator.moveMotor(false);
-        }
-        break;
+      // case 'A': // Up Arrow
+      //   if(!linear_actuator.motorRunning)
+      //   {
+      //       println("LA Rotate ACW");
+      //       // linear_actuator.rotateMotor(true, linear_actuator.stepsPerMove);
+      //       linear_actuator.moveMotor(true);
+      //   }
+      //   break;
+      // case 'B': // Down Arrow
+      //   if(!linear_actuator.motorRunning)
+      //   {
+      //       println("LA Rotate CW");
+      //       // linear_actuator.rotateMotor(false, linear_actuator.stepsPerMove);
+      //       linear_actuator.moveMotor(false);
+      //   }
+      //   break;
       // drill motor controls
-      case 'Q':
+      // case 'Q':
       case 'q': // CLOCKWISE
         drill_motor.changeDirection(CLOCKWISE);
         println("drill Clockwise");
         break;
-      case 'E':
+      // case 'E':
       case 'e': // ANTICLOCKWISE
         drill_motor.changeDirection(ANTICLOCKWISE);
         println("drill Anti-clockwise");
-        break;
-      case 'C': // Right
-        if (!isCurrentThreshold2ExceededFlagged)
-        {
-          drill_motor.increaseSpeed();
-          print("drill Speed: ");
-          println(drill_motor.targetSpeed);
-          isDrillHalted = false;
-        }
-        else
-        {
-          println("Drill motor speed change blocked due to overcurrent condition");
-        }
-        break;
-      case 'D': // left
-        if (!isCurrentThreshold2ExceededFlagged)
-        {
-          drill_motor.decreaseSpeed();
-          print("drill Speed: ");
-          println(drill_motor.targetSpeed);
-          isDrillHalted = false;
-        }
-        else
-        {
-          println("Drill motor speed change blocked due to overcurrent condition");
-        }
         break;
       case 'a': // Abruptly stop drill motor
         drill_motor.stopMotor();
@@ -483,15 +469,78 @@ void loop() {
           currentServoToggleState = !currentServoToggleState;
         }
         break;
-      // test tube drop
-      case 'd':
-        if(isBFirstPressed)
-        {
-          println("Dropping Test Tube");
-          test_tube_dropper.toggle();
-        }
+      // // test tube drop
+      // case 'd':
+      //   if(isBFirstPressed)
+      //   {
+      //     println("Dropping Test Tube");
+      //     test_tube_dropper.toggle();
+      //   }
     }
-    return;
+
+    // --------- Arrow Key Handling (ESC sequences) ---------
+    if (escState == 0 && c == 27) { // ESC
+      escState = 1;
+      return;
+    }
+
+    if (escState == 1 && c == '[') {
+      escState = 2;
+      return;
+    }
+
+    if (escState == 2) {
+      escState = 0;
+      switch (c) {
+        // Linear Actuator controls
+        case 'A': // Up Arrow
+            if(!linear_actuator.motorRunning)
+            {
+                println("LA Rotate CW");
+                // linear_actuator.rotateMotor(true, linear_actuator.stepsPerMove);
+                linear_actuator.moveMotor(true);
+                break;
+            }
+        case 'B': // Down Arrow
+            if(!linear_actuator.motorRunning)
+            {
+                println("LA Rotate CCW");
+                // linear_actuator.rotateMotor(false, linear_actuator.stepsPerMove);
+                linear_actuator.moveMotor(false);
+                break;
+            }
+
+        // drill motor speed controls
+        case 'C': // Right
+          if (!isCurrentThreshold2ExceededFlagged)
+          {
+            drill_motor.increaseSpeed();
+            print("drill Speed: ");
+            println(drill_motor.targetSpeed);
+            isDrillHalted = false;
+          }
+          else
+          {
+            println("Drill motor speed change blocked due to overcurrent condition");
+          }
+          break;
+        case 'D': // left
+          if (!isCurrentThreshold2ExceededFlagged)
+          {
+            drill_motor.decreaseSpeed();
+            print("drill Speed: ");
+            println(drill_motor.targetSpeed);
+            isDrillHalted = false;
+          }
+          else
+          {
+            println("Drill motor speed change blocked due to overcurrent condition");
+          }
+          break;
+      }
+    }
+
+    // return;
   }
 
   delayCounter += 1;
@@ -551,7 +600,8 @@ void loop() {
       isCurrentThreshold2ExceededFlagged = false;
       drillCooldownTimer = 1000;
     }
-
+    println("--------------------------");
+    println("Current sensor reading (mA): " + String(drill_motor_ma));
     println("---------------------------");
     print("Acc: ");
     print(ax); Serial.print(", ");
@@ -604,7 +654,9 @@ void loop() {
     //   print("MQ-6 Propane: ");.print(mq6.readPropane()); println(" ppm");
     //   print("MQ-6 Butane: "); print(mq6.readButane()); println(" ppm");
 
-    print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
+    // print("MQ-135 CO2: "); print(mq135.readCO2()); println(" ppm");
+    print("MQ-135 CO2 (Digital): ");
+    print(mq135_digital.isCO2Detected());
 
     // pH = ph_sensor.readPH();
     // print("pH Value: ");
@@ -628,7 +680,7 @@ void loop() {
       println(nitrogen);
       print("Phosphorus (mg/kg): ");
       println(phosphorus);
-      print("Potassium (mg/kg): ");
+      print("Potassium (mg/kg): ");  
       println(potassium);
     } 
     else 
@@ -646,10 +698,20 @@ void loop() {
   pubsub.handle_subscriptions();
   barrel_motor.run();
   linear_actuator.run();
+  // publish the command recieved from base station for debugging purpose
+  pubsub.publish_cmd_received(
+      linear_actuator_cmd,
+      drill_cmd,
+      barrel_cmd,
+      servo_toggle,
+      science_module_toggle
+  );
   if (science_module_toggle == 1) scienceModeEnable = true;
   else if(science_module_toggle == 0) scienceModeEnable = false;
 
-  if (scienceModeEnable) {} 
+  if (scienceModeEnable) {
+        println("Science Exploration Mode Enabled");
+  } 
   else {
     isBFirstPressed = false;
     isStartDrillFlagged = false;
@@ -660,6 +722,7 @@ void loop() {
     isDrillHalted = true;
     ph_servo_position = false;
     initial_distance_just_after_starting_drill = 0;
+    println("Science Exploration Mode Disabled");
     return;
   }
   // ============ All controls ==================
@@ -667,11 +730,17 @@ void loop() {
   if (!linear_actuator.motorRunning)
   {
     if(linear_actuator_cmd == 1) // Up Arrow
+    {
         // linear_actuator.rotateMotor(true, linear_actuator.stepsPerMove);
         linear_actuator.moveMotor(true);
+        println("LA Rotate ACW");
+    }
     else if(linear_actuator_cmd == -1) // Down Arrow
+    {
         // linear_actuator.rotateMotor(false, linear_actuator.stepsPerMove);
         linear_actuator.moveMotor(false);
+        println("LA Rotate CW");
+    }
   }
 //   if(linear_actuator_cmd == 0) linear_actuator.setMicrostepping(FULL);
 //   else if(linear_actuator_cmd == 4) linear_actuator.setMicrostepping(MICRO_1_4);
@@ -679,9 +748,15 @@ void loop() {
 //   else if(linear_actuator_cmd == 16) linear_actuator.setMicrostepping(MICRO_1_16);
   // drill motor controls
   if(drill_cmd == -2) // CLOCKWISE
+  {
     drill_motor.changeDirection(CLOCKWISE);
+    println("drill Clockwise");
+  }
   else if(drill_cmd == 2) // ANTICLOCKWISE
+  {
     drill_motor.changeDirection(ANTICLOCKWISE);
+    println("drill Anticlockwise");
+  }
 
   if(drill_cmd == 1) // Right
   {
@@ -689,6 +764,7 @@ void loop() {
     {
       drill_motor.increaseSpeed();
       isDrillHalted = false;
+      println("drill Speed Increased to " + String(drill_motor.targetSpeed));
     }
   }
   else if(drill_cmd == -1) // left
@@ -697,12 +773,14 @@ void loop() {
     {
       drill_motor.decreaseSpeed();
       isDrillHalted = false;
+      println("drill Speed Decreased to " + String(drill_motor.targetSpeed));
     }
   }
   else if(drill_cmd == 0) // Abruptly stop drill motor
   {
     drill_motor.stopMotor();
     isDrillHalted = true;
+    println("Drill Motor Abruptly Stopped");
   }
 
   // Barrel Motor Rotate
@@ -710,15 +788,20 @@ void loop() {
   {
     isBFirstPressed = true;
     barrel_motor.handleBarellRotateInput(true);
+    println("Barrel Motor Rotate Forward");
   }
   else if(barrel_cmd == -1) // backward
   {
     isBFirstPressed = true;
     barrel_motor.handleBarellRotateInput(false);
+    println("Barrel Motor Rotate Backward");
   }
 
-  // drop test tube
-  if(servo_toggle == 2 && isBFirstPressed) test_tube_dropper.toggle();
+  // // drop test tube
+  // if(servo_toggle == 2 && isBFirstPressed){ 
+  //   test_tube_dropper.toggle();
+  //   println("Dropping Test Tube");
+  // }
 
   // PH Servo Toggle
   if(servo_toggle == 1) ph_servo_position = true;
@@ -747,6 +830,7 @@ void loop() {
 
     if(distance - dist_bw_sensor_drill <=0 && !isStartDrillFlagged) {
       pubsub.publish_info_warning(1); // publish start drilling info
+      println("INFO: start drilling");
       initial_distance_just_after_starting_drill = distance;
       isStartDrillFlagged = true;
       messageCode = 1; // start drilling
@@ -756,6 +840,7 @@ void loop() {
 
     if(initial_distance_just_after_starting_drill - distance >= cm_to_drill*10 && isStartDrillFlagged && !isStopDrillFlagged) {
       pubsub.publish_info_warning(2); // publish stop drilling warning
+      println("WARNING: stop drilling");
       isStopDrillFlagged = true;
       messageCode = 2; // stop drilling
     }
@@ -767,12 +852,14 @@ void loop() {
         gy < gy_th_y_min || gy > gy_th_y_max ||
         gz < gz_th_z_min || gz > gz_th_z_max) && !isShakeFlagged) {
       pubsub.publish_info_warning(3); // publish shake detected alert
+      println("ALERT: Shake Detected!");
       messageCode = 3; // shake detected
       isShakeFlagged = true;
     }
 
     if(drill_motor_ma > drill_motor_ma_threshold_1 && !isCurrentThreshold1ExceededFlagged) {
       pubsub.publish_info_warning(4); // publish current threshold 1 exceeded alert
+      println("ALERT: Current Threshold 1 Exceeded!");
       isCurrentThreshold1ExceededFlagged = true;
       messageCode = 4; // current threshold 1 exceeded
     }
@@ -780,6 +867,7 @@ void loop() {
     if (drill_motor_ma > drill_motor_ma_threshold_2 && !isCurrentThreshold2ExceededFlagged) {
       pubsub.publish_info_warning(5); // publish current threshold 2 exceeded alert
       drill_motor.stopMotor();
+      println("CRITICAL ALERT: Current Threshold 2 Exceeded! stopping drill motor");
       isCurrentThreshold2ExceededFlagged = true;
       isDrillHalted = true;
       messageCode = 5; // current threshold 2 exceeded
@@ -789,6 +877,7 @@ void loop() {
     else
     {
       isCurrentThreshold2ExceededFlagged = false;
+      println("INFO: Current Threshold 2 Cooldown Complete");
       drillCooldownTimer = 1000;
     }
 
@@ -799,10 +888,15 @@ void loop() {
     pubsub.publish_sensor_data(
       -6, //tcs3200_sensor.isColorless(), 
       -6, //tcs3200_sensor.isColorViolet(), 
-      dht_sensor.getHumidity(), nitrogen, phosphorus, potassium, 0, 
-      mq135.readCO2(), bmp_sensor.readTemperature(), 
+      dht_sensor.getHumidity(), nitrogen, phosphorus, potassium, 
+      0, //ph placeholder
+      // mq135.readCO2(), 
+      mq135_digital.isCO2Detected(),
+      bmp_sensor.readTemperature(), 
       bmp_sensor.readPressure(), bmp_sensor.readAltitude(),
-      depth, 0,0);
+      depth, 
+      0,0 // lat and long placeholder
+    );
   }
 
   if (delayCounter > DELAY_BETWEEN_SENSOR_READS) {
